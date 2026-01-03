@@ -409,8 +409,11 @@ class DetailedValidator:
         elif result_source == 'openreview':
             result_title = result.get('content', {}).get('title', '')
             result_authors = result.get('content', {}).get('authors', [])
+            result_year = None
             if result.get('cdate'):
                 result_year = str(result['cdate'] // 10000000000)
+            # OpenReview没有DOI字段
+            result_doi = None
         elif result_source == 'scholar':
             result_title = result.get('title', '')
             result_authors = result.get('authors', [])
