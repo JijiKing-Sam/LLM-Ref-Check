@@ -1,11 +1,18 @@
 """
-参考文献验证核心逻辑
-整合多个验证源，提供统一的验证接口
+参考文献验证核心逻辑（兼容旧版本）
+推荐使用 multi_validator.py 中的 MultiSourceValidator
 """
 from typing import List, Dict, Optional
 import logging
 from .bibtex_parser import BibTeXEntry
 from .arxiv_validator import ArXivValidator
+
+# 导入多源验证器
+try:
+    from .multi_validator import MultiSourceValidator, ValidationResult as MultiValidationResult
+    MULTI_SOURCE_AVAILABLE = True
+except ImportError:
+    MULTI_SOURCE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +176,7 @@ class ReferenceValidator:
                 results.append(error_result)
         
         return results
+
 
 
 

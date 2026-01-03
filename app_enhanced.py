@@ -11,7 +11,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from ref_checker.bibtex_parser import BibTeXParser
-from ref_checker.validator import ReferenceValidator
+try:
+    from ref_checker.multi_validator import MultiSourceValidator as ReferenceValidator
+    MULTI_SOURCE = True
+except ImportError:
+    from ref_checker.validator import ReferenceValidator
+    MULTI_SOURCE = False
 from ref_checker.report_generator import MarkdownReportGenerator
 import logging
 
@@ -422,14 +427,54 @@ def display_results(results):
                 
                 if selected.verification_sources:
                     st.markdown("**验证源信息:**")
+                    source_names = {
+                        'arxiv': 'ArXiv',
+                        'crossref': 'Crossref',
+                        'openreview': 'OpenReview',
+                        'scholar': 'Google Scholar'
+                    }
+                    found_count = 0
                     for source, source_result in selected.verification_sources.items():
+                        source_display = source_names.get(source, source.upper())
                         if source_result.get('found', False):
-                            st.success(f"✅ {source.upper()}: 找到匹配")
-                            if source_result.get('arxiv_id'):
+                            found_count += 1
+                            st.success(f"✅ {source_display}: 找到匹配")
+                            # 显示链接
+                            if source_result.get('source_url'):
+                                st.markdown(f"   - [查看原文]({source_result['source_url']})")
+                            elif source_result.get('arxiv_id'):
                                 arxiv_id = source_result['arxiv_id']
                                 st.markdown(f"   - [ArXiv链接](https://arxiv.org/abs/{arxiv_id})")
+                            elif source_result.get('source_id'):
+                                source_id = source_result['source_id']
+                                if source == 'crossref':
+                                    st.markdown(f"   - [DOI链接](https://doi.org/{source_id})")
+                                elif source == 'openreview':
+                                    st.markdown(f"   - [OpenReview链接](https://openreview.net/forum?id={source_id})")
+                            
+                            # 显示匹配详情
+                            match_details = source_result.get('match_details', {})
+                            if match_details:
+                                matches = []
+                                if match_details.get('title_match'):
+                                    matches.append("标题匹配")
+                                if match_details.get('author_match'):
+                                    matches.append("作者匹配")
+                                if match_details.get('year_match'):
+                                    matches.append("年份匹配")
+                                if matches:
+                                    st.caption(f"   匹配项: {', '.join(matches)}")
                         else:
-                            st.error(f"❌ {source.upper()}: 未找到匹配")
+                            st.error(f"❌ {source_display}: 未找到匹配")
+                            if source_result.get('error'):
+                                st.caption(f"   错误: {source_result['error']}")
+                    
+                    # 显示源数量统计
+                    total_count = len(selected.verification_sources)
+                    if total_count > 1:
+                        st.info(f"📊 验证源统计: {found_count}/{total_count} 个源找到匹配")
+                        if hasattr(selected, 'source_count'):
+                            st.caption(f"   多源验证: {selected.source_count} 个源确认")
             
             # 问题和警告
             if selected.issues:
@@ -471,7 +516,18 @@ with tab1:
                     else:
                         st.info(f"📚 找到 {len(entries)} 条参考文献，开始验证...")
                         
-                        validator = ReferenceValidator()
+                        # 使用多源验证器（如果可用）
+                        try:
+                            validator = ReferenceValidator()
+                            if MULTI_SOURCE:
+                                st.info("🔍 使用多源验证（ArXiv + Crossref + OpenReview + Scholar）")
+                            else:
+                                st.info("🔍 使用单源验证（ArXiv）")
+                        except Exception as e:
+                            st.warning(f"⚠️ 多源验证器初始化失败，使用默认验证器: {e}")
+                            from ref_checker.validator import ReferenceValidator
+                            validator = ReferenceValidator()
+                        
                         results = validator.validate_batch(entries)
                         
                         st.session_state.validation_results = results
@@ -518,7 +574,18 @@ with tab2:
                     else:
                         st.info(f"📚 找到 {len(entries)} 条参考文献，开始验证...")
                         
-                        validator = ReferenceValidator()
+                        # 使用多源验证器（如果可用）
+                        try:
+                            validator = ReferenceValidator()
+                            if MULTI_SOURCE:
+                                st.info("🔍 使用多源验证（ArXiv + Crossref + OpenReview + Scholar）")
+                            else:
+                                st.info("🔍 使用单源验证（ArXiv）")
+                        except Exception as e:
+                            st.warning(f"⚠️ 多源验证器初始化失败，使用默认验证器: {e}")
+                            from ref_checker.validator import ReferenceValidator
+                            validator = ReferenceValidator()
+                        
                         results = validator.validate_batch(entries)
                         
                         st.session_state.validation_results = results
@@ -565,3 +632,4 @@ st.markdown("""
     <a href="https://github.com/JijiKing-Sam/LLM-Ref-Check" target="_blank" style='color: #3b82f6; text-decoration: none;'>GitHub</a></p>
 </div>
 """, unsafe_allow_html=True)
+

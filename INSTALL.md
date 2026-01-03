@@ -61,3 +61,4 @@ python -m pip show bibtexparser
 - `arxiv>=2.1.0` - ArXiv API 客户端
 - `python-dateutil>=2.8.2` - 日期处理
 - `tqdm>=4.66.0` - 进度条显示
+

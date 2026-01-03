@@ -7,7 +7,12 @@ import sys
 import logging
 from pathlib import Path
 from ref_checker.bibtex_parser import BibTeXParser
-from ref_checker.validator import ReferenceValidator
+try:
+    from ref_checker.multi_validator import MultiSourceValidator as ReferenceValidator
+    MULTI_SOURCE = True
+except ImportError:
+    from ref_checker.validator import ReferenceValidator
+    MULTI_SOURCE = False
 from ref_checker.report_generator import MarkdownReportGenerator
 
 # 配置日志
@@ -103,6 +108,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

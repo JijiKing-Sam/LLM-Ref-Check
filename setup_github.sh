@@ -74,3 +74,4 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "   3. 有推送权限"
     fi
 fi
+
