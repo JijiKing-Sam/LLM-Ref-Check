@@ -262,21 +262,24 @@ class CrossrefValidator(BaseValidator):
         }
         
         try:
-            # 方法1: 如果有DOI，直接查询
+            # 方法1: 如果有DOI，直接查询（但仍需详细验证）
             if entry.doi:
                 paper = self.search_by_doi(entry.doi)
                 if paper:
+                    # 即使通过DOI找到，也要进行详细验证以检测幻觉
+                    is_match, match_details = self.match_result(
+                        entry.title,
+                        entry.authors,
+                        entry.year,
+                        paper
+                    )
+                    
                     result['found'] = True
                     result['matched_result'] = paper
                     result['source_id'] = entry.doi
                     result['source_url'] = f"https://doi.org/{entry.doi}"
                     result['verification_method'] = 'doi'
-                    result['match_details'] = {
-                        'title_match': True,
-                        'author_match': True,
-                        'year_match': True,
-                        'similarity_score': 1.0
-                    }
+                    result['match_details'] = match_details
                     return result
             
             # 方法2: 通过标题和作者搜索
