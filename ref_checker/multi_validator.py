@@ -56,36 +56,66 @@ class ValidationResult:
         if found_sources == 0:
             self.confidence = 0.0
         elif found_sources == 1:
-            # 只有一个源找到，置信度较低
+            # 只有一个源找到，使用该源的相似度
             source_result = next(r for r in self.verification_sources.values() if r.get('found', False))
             match_details = source_result.get('match_details', {})
+            # 使用改进后的相似度分数
             similarity = match_details.get('similarity_score', 0.0)
-            self.confidence = similarity * 0.7  # 单源验证降低置信度
+            title_sim = match_details.get('title_similarity', 0.0)
+            # 如果标题相似度很高，即使单源也提高置信度
+            if title_sim >= 0.8:
+                self.confidence = min(similarity * 0.9, 1.0)
+            else:
+                self.confidence = similarity * 0.8  # 提高单源置信度（从0.7到0.8）
         elif found_sources >= 2:
             # 多个源找到，计算平均相似度并提高置信度
             total_similarity = 0.0
+            max_title_sim = 0.0
             for source, source_result in self.verification_sources.items():
                 if source_result.get('found', False):
                     match_details = source_result.get('match_details', {})
                     similarity = match_details.get('similarity_score', 0.0)
+                    title_sim = match_details.get('title_similarity', 0.0)
                     total_similarity += similarity
+                    max_title_sim = max(max_title_sim, title_sim)
             
             avg_similarity = total_similarity / found_sources
-            # 多源验证提高置信度
-            self.confidence = min(avg_similarity * (1.0 + 0.2 * (found_sources - 1)), 1.0)
+            # 多源验证提高置信度，如果标题相似度很高，进一步提高
+            base_confidence = avg_similarity * (1.0 + 0.15 * (found_sources - 1))
+            if max_title_sim >= 0.8:
+                base_confidence *= 1.1
+            self.confidence = min(base_confidence, 1.0)
         else:
             self.confidence = 0.0
         
-        # 根据置信度和源数量设置推荐
-        if self.confidence >= 0.8 and found_sources >= 2:
+        # 检查是否有幻觉标记
+        has_hallucination = False
+        for source_result in self.verification_sources.values():
+            if source_result.get('found', False):
+                match_details = source_result.get('match_details', {})
+                if match_details.get('is_hallucination', False):
+                    has_hallucination = True
+                    self.add_issue("⚠️ 检测到可能的幻觉引用（部分信息正确但其他信息错误）")
+                    # 添加详细问题
+                    if match_details.get('issues'):
+                        for issue in match_details['issues']:
+                            self.add_issue(issue)
+                    break
+        
+        # 根据置信度和源数量设置推荐（降低阈值）
+        if has_hallucination:
+            self.recommendation = "⚠️ 疑似幻觉引用，需要人工检查"
+            self.is_suspicious = True
+            self.is_valid = False
+        elif self.confidence >= 0.7 and found_sources >= 2:
             self.recommendation = "验证通过（多源确认）"
             self.is_valid = True
-        elif self.confidence >= 0.8:
+        elif self.confidence >= 0.7:
             self.recommendation = "验证通过"
             self.is_valid = True
-        elif self.confidence >= 0.6 and found_sources >= 2:
+        elif self.confidence >= 0.5 and found_sources >= 2:
             self.recommendation = "基本可信（多源确认）"
-        elif self.confidence >= 0.5:
+        elif self.confidence >= 0.4:  # 降低阈值（从0.5到0.4）
             self.recommendation = "基本可信，建议复查"
         else:
             self.recommendation = "存在疑问，需要人工检查"

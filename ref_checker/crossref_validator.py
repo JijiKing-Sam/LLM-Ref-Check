@@ -7,6 +7,8 @@ import time
 from typing import Dict, Optional, List
 import logging
 from .base_validator import BaseValidator
+from .improved_matcher import ImprovedMatcher
+from .detailed_validator import DetailedValidator
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +167,7 @@ class CrossrefValidator(BaseValidator):
     def match_result(self, entry_title: str, entry_authors: List[str],
                     entry_year: Optional[str], result: Dict):
         """
-        比较BibTeX条目和Crossref结果是否匹配
+        比较BibTeX条目和Crossref结果是否匹配（使用详细验证）
         
         Args:
             entry_title: BibTeX条目标题
@@ -176,50 +178,66 @@ class CrossrefValidator(BaseValidator):
         Returns:
             (是否匹配, 匹配详情字典)
         """
-        match_details = {
-            'title_match': False,
-            'author_match': False,
-            'year_match': False,
-            'similarity_score': 0.0
-        }
-        
-        # 标题匹配
+        # 提取结果信息
         result_title = result.get('title', [''])[0] if result.get('title') else ''
-        entry_title_norm = self.normalize_title(entry_title)
-        result_title_norm = self.normalize_title(result_title)
-        
-        if entry_title_norm and result_title_norm:
-            similarity = self.calculate_similarity(entry_title, result_title)
-            if similarity >= 0.7:
-                match_details['title_match'] = True
-                match_details['similarity_score'] += similarity * 0.5
-        
-        # 作者匹配
-        if entry_authors and result.get('author'):
-            entry_authors_norm = [self.normalize_author(a) for a in entry_authors]
-            result_authors = []
+        result_authors = []
+        if result.get('author'):
             for author in result['author']:
                 given = author.get('given', '')
                 family = author.get('family', '')
                 if family:
-                    result_authors.append(self.normalize_author(family))
-            
-            common_authors = set(entry_authors_norm) & set(result_authors)
-            if common_authors:
-                match_details['author_match'] = True
-                match_details['similarity_score'] += 0.3
+                    if given:
+                        result_authors.append(f"{family}, {given}")
+                    else:
+                        result_authors.append(family)
+                elif given:
+                    result_authors.append(given)
         
-        # 年份匹配
-        if entry_year and result.get('published-print'):
+        result_year = None
+        if result.get('published-print'):
             pub_dates = result['published-print'].get('date-parts', [])
             if pub_dates and len(pub_dates[0]) > 0:
                 result_year = str(pub_dates[0][0])
-                if entry_year == result_year:
-                    match_details['year_match'] = True
-                    match_details['similarity_score'] += 0.2
+        elif result.get('published-online'):
+            pub_dates = result['published-online'].get('date-parts', [])
+            if pub_dates and len(pub_dates[0]) > 0:
+                result_year = str(pub_dates[0][0])
+        elif result.get('issued'):
+            pub_dates = result['issued'].get('date-parts', [])
+            if pub_dates and len(pub_dates[0]) > 0:
+                result_year = str(pub_dates[0][0])
         
-        # 如果相似度超过阈值，认为匹配
-        is_match = match_details['similarity_score'] >= 0.6
+        result_doi = result.get('DOI')
+        
+        # 使用详细验证器进行字段级验证
+        entry_dict = {
+            'title': entry_title,
+            'authors': entry_authors,
+            'year': entry_year,
+            'doi': None  # 如果需要，可以从entry中获取
+        }
+        
+        detailed_result = DetailedValidator.comprehensive_validate(
+            entry_dict,
+            result,
+            'crossref'
+        )
+        
+        # 转换为原有格式
+        match_details = {
+            'title_match': detailed_result['field_validations']['title'].get('match', False),
+            'author_match': detailed_result['field_validations']['authors'].get('match', False),
+            'year_match': detailed_result['field_validations']['year'].get('match', False),
+            'similarity_score': detailed_result['confidence'],
+            'title_similarity': detailed_result['field_validations']['title'].get('similarity', 0.0),
+            'author_similarity': detailed_result['field_validations']['authors'].get('match_ratio', 0.0),
+            'is_hallucination': detailed_result.get('is_hallucination', False),
+            'issues': detailed_result.get('issues', []),
+            'warnings': detailed_result.get('warnings', []),
+            'detailed_validation': detailed_result  # 保留详细验证结果
+        }
+        
+        is_match = detailed_result['overall_match']
         
         return is_match, match_details
     

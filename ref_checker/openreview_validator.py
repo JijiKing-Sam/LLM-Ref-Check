@@ -7,6 +7,7 @@ import time
 from typing import Dict, Optional, List
 import logging
 from .base_validator import BaseValidator
+from .improved_matcher import ImprovedMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,7 @@ class OpenReviewValidator(BaseValidator):
     def match_result(self, entry_title: str, entry_authors: List[str],
                     entry_year: Optional[str], result: Dict):
         """
-        比较BibTeX条目和OpenReview结果是否匹配
+        比较BibTeX条目和OpenReview结果是否匹配（使用改进的匹配算法）
         
         Args:
             entry_title: BibTeX条目标题
@@ -128,43 +129,19 @@ class OpenReviewValidator(BaseValidator):
         Returns:
             (是否匹配, 匹配详情字典)
         """
-        match_details = {
-            'title_match': False,
-            'author_match': False,
-            'year_match': False,
-            'similarity_score': 0.0
-        }
-        
-        # 标题匹配
+        # 提取结果信息
         result_title = result.get('content', {}).get('title', '')
-        entry_title_norm = self.normalize_title(entry_title)
-        result_title_norm = self.normalize_title(result_title)
-        
-        if entry_title_norm and result_title_norm:
-            similarity = self.calculate_similarity(entry_title, result_title)
-            if similarity >= 0.7:
-                match_details['title_match'] = True
-                match_details['similarity_score'] += similarity * 0.5
-        
-        # 作者匹配
-        if entry_authors and result.get('content', {}).get('authors'):
-            entry_authors_norm = [self.normalize_author(a) for a in entry_authors]
-            result_authors = [self.normalize_author(a) for a in result['content']['authors']]
-            
-            common_authors = set(entry_authors_norm) & set(result_authors)
-            if common_authors:
-                match_details['author_match'] = True
-                match_details['similarity_score'] += 0.3
-        
-        # 年份匹配
-        if entry_year and result.get('cdate'):
+        result_authors = result.get('content', {}).get('authors', [])
+        result_year = None
+        if result.get('cdate'):
             # OpenReview使用时间戳，提取年份
             result_year = str(result['cdate'] // 10000000000)
-            if entry_year == result_year:
-                match_details['year_match'] = True
-                match_details['similarity_score'] += 0.2
         
-        is_match = match_details['similarity_score'] >= 0.6
+        # 使用改进的匹配算法
+        is_match, match_details = ImprovedMatcher.calculate_match_score(
+            entry_title, entry_authors, entry_year,
+            result_title, result_authors, result_year
+        )
         
         return is_match, match_details
     

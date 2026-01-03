@@ -144,8 +144,12 @@ class MarkdownReportGenerator:
                     if source_result.get('arxiv_id'):
                         arxiv_id = source_result['arxiv_id']
                         lines.append(f"  - ArXiv ID: [{arxiv_id}](https://arxiv.org/abs/{arxiv_id})")
+                    if source_result.get('source_url'):
+                        lines.append(f"  - 链接: [{source_result['source_url']}]({source_result['source_url']})")
+                    
                     match_details = source_result.get('match_details', {})
                     if match_details:
+                        # 基本匹配信息
                         matches = []
                         if match_details.get('title_match'):
                             matches.append("标题匹配")
@@ -155,6 +159,47 @@ class MarkdownReportGenerator:
                             matches.append("年份匹配")
                         if matches:
                             lines.append(f"  - 匹配项: {', '.join(matches)}")
+                        
+                        # 详细验证信息
+                        detailed = match_details.get('detailed_validation', {})
+                        if detailed:
+                            field_validations = detailed.get('field_validations', {})
+                            
+                            # 标题详细信息
+                            if 'title' in field_validations:
+                                title_val = field_validations['title']
+                                lines.append(f"  - 标题相似度: {title_val.get('similarity', 0):.2%}")
+                            
+                            # 作者详细信息
+                            if 'authors' in field_validations:
+                                author_val = field_validations['authors']
+                                lines.append(f"  - 作者匹配: {author_val.get('exact_match_count', 0)}个完全匹配, "
+                                           f"{author_val.get('partial_match_count', 0)}个部分匹配, "
+                                           f"共{author_val.get('total_entry', 0)}个作者")
+                                if author_val.get('missing_authors'):
+                                    missing = author_val['missing_authors']
+                                    if len(missing) <= 3:
+                                        lines.append(f"    - ⚠️ 缺失作者: {', '.join(missing)}")
+                                    else:
+                                        lines.append(f"    - ⚠️ 缺失作者: {', '.join(missing[:3])} 等{len(missing)}个")
+                            
+                            # 年份详细信息
+                            if 'year' in field_validations:
+                                year_val = field_validations['year']
+                                if not year_val.get('match'):
+                                    lines.append(f"  - ⚠️ 年份不匹配: {year_val.get('entry_year')} vs {year_val.get('result_year')}")
+                        
+                        # 幻觉检测
+                        if match_details.get('is_hallucination'):
+                            lines.append(f"  - ⚠️ **疑似幻觉引用**")
+                        
+                        # 问题和警告
+                        if match_details.get('issues'):
+                            for issue in match_details['issues']:
+                                lines.append(f"  - ⚠️ {issue}")
+                        if match_details.get('warnings'):
+                            for warning in match_details['warnings']:
+                                lines.append(f"  - ⚠️ {warning}")
                 else:
                     lines.append(f"- **{source.upper()}**: ❌ 未找到匹配")
             lines.append("")
