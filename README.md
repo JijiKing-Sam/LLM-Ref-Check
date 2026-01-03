@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Streamlit](https://img.shields.io/badge/streamlit-1.28+-red.svg)](https://streamlit.io/)
 
-一个**百分百准确可靠**的 LLM 参考文献幻觉检测工具，专门用于验证 BibTeX 格式的参考文献，确保论文中的参考文献完全准确，避免因 LLM 生成幻觉而被拒稿。
+一个**正在完善中**的 LLM 参考文献幻觉检测工具，专门用于验证 BibTeX 格式的参考文献，确保论文中的参考文献完全准确，避免因 LLM 生成幻觉而被拒稿。
 
 ## ✨ 特性
 
