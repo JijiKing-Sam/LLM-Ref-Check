@@ -21,16 +21,26 @@ class BibTeXEntry:
     @property
     def title(self) -> Optional[str]:
         """获取标题"""
-        return self.entry.get('title', '').strip().strip('{}')
+        title = self.entry.get('title', '')
+        if title is None:
+            return None
+        if isinstance(title, str):
+            # 移除BibTeX的大括号和多余空白
+            title = title.strip().strip('{}').strip()
+            return title if title else None
+        return str(title).strip().strip('{}').strip() or None
     
     @property
     def authors(self) -> List[str]:
         """获取作者列表"""
         authors_str = self.entry.get('author', '')
-        if not authors_str:
+        if not authors_str or authors_str is None:
             return []
+        # 确保是字符串类型
+        if not isinstance(authors_str, str):
+            authors_str = str(authors_str)
         # 处理BibTeX作者格式 (用and分隔)
-        authors = [a.strip() for a in authors_str.split(' and ')]
+        authors = [a.strip() for a in authors_str.split(' and ') if a.strip()]
         return authors
     
     @property

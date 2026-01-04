@@ -372,17 +372,31 @@ def display_results(results):
             if clicked:
                 st.session_state.selected_entry_idx = idx
             
+            # 准备显示内容
+            title = result.entry.title
+            if not title or not title.strip():
+                title = '未提供标题'
+            
+            authors = result.entry.authors
+            if authors and len(authors) > 0:
+                # 显示所有作者，用逗号分隔
+                authors_str = ', '.join(authors)
+            else:
+                authors_str = '未知作者'
+            
+            year_str = f"({result.entry.year})" if result.entry.year and result.entry.year.strip() else ""
+            author_year_str = f"{authors_str} {year_str}".strip()
+            
             # 显示卡片内容
             st.markdown(f"""
             <div class="{card_class}">
                 <div style='display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;'>
                     {status_badge}
-                    <span style='font-size: 0.75rem; color: #94a3b8; font-family: monospace;'>ID: {idx}</span>
+                    <span style='font-size: 0.75rem; color: #94a3b8; font-family: monospace;'>ID: {idx + 1}</span>
                 </div>
-                <p style='margin: 0; color: #1e293b; line-height: 1.6;'><strong>{result.entry.title or '未提供标题'}</strong></p>
+                <p style='margin: 0; color: #1e293b; line-height: 1.6;'><strong>{title}</strong></p>
                 <p style='margin: 0.25rem 0 0 0; color: #64748b; font-size: 0.875rem;'>
-                    {', '.join(result.entry.authors[:3]) if result.entry.authors else '未知作者'}
-                    {f"({result.entry.year})" if result.entry.year else ""}
+                    {author_year_str}
                 </p>
                 <div style='margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;'>
                     <span style='font-size: 0.75rem; color: #64748b;'>置信度</span>
